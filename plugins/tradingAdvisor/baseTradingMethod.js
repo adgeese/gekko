@@ -29,6 +29,10 @@ if(config.tradingAdvisor.talib.enabled) {
 var indicatorsPath = dirs.methods + 'indicators/';
 
 var Indicators = {
+  Ichimoku: {
+    factory: require(indicatorsPath + 'Ichimoku'),
+    input: 'candle'
+  },
   MACD: {
     factory: require(indicatorsPath + 'MACD'),
     input: 'price'
