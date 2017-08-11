@@ -20,8 +20,6 @@ var strat = {};
 // Prepare everything our method needs
 strat.init = function() {
   
-  console.log('Init Ichimoku Strategy')
-
   this.name = 'Ichimoku';
   this.currentTrend = 'long';
   this.requiredHistory = 0;
@@ -34,20 +32,30 @@ strat.init = function() {
   this.SARacceleration = 0.025
   this.SARmaxacceleration = 0.15
 
-  console.log('Add Ichimoku indicators')
   // define the indicators we need
   this.addIndicator('ichi', 'Ichimoku', settings);  
+  
   this.ichi = this.indicators.ichi;
-  console.log('Add Ichimoku indicators done')
+
+  var sarSettings = {
+      optInAcceleration: this.SARacceleration,
+      optInMaximum: this.SARmaxacceleration
+  };
+
+  this.addTalibIndicator('sar', 'sar', sarSettings);
+  this.sar = this.talibIndicators.sar;
 
 }
 
 // What happens on every new candle?
 strat.update = function(candle) {
 
-  console.log('Update Ichimoku Strategy')
-
   const instrument = candle;
+
+  this.open = instrument.open;
+  this.close = instrument.close;
+  this.high = instrument.high;
+  this.low = instrument.low;
 
   if (this.init) {
 
@@ -62,37 +70,6 @@ strat.update = function(candle) {
 
       this.init = false;
   }
-
-  const c = this.ichi.check();
-
-  let diff = 100 * ((c.tenkan - c.kijun) / ((c.tenkan + c.kijun) / 2));
-
-  diff = Math.abs(diff);
-
-  const min_tenkan = Math.min([c.tenkan, c.kijun]);
-  const max_tenkan = Math.max([c.tenkan, c.kijun]);
-  const min_senkou = Math.min([c.senkou_a, c.senkou_b]);
-  const max_senkou = Math.max([c.senkou_a, c.senkou_b]);
-
-  console.log('TLIB SAR Start')
-  const results = talib.SAR({
-      high: instrument.high,
-      low: instrument.low,
-      startIdx: 0,
-      endIdx: instrument.close.length-1,
-      optInAcceleration: this.SARacceleration,
-      optInMaximum: this.SARmaxacceleration
-  });
-  console.log('TLIB SAR End')
-
-  const SAR = _.last(results);
-}
-
-// For debugging purposes.
-strat.log = function() {
-  log.debug('calculated random number:');
-  log.debug('\t', this.randomNumber.toFixed(3));
-
 }
 
 // Based on the newly calculated
@@ -100,14 +77,35 @@ strat.log = function() {
 // update or not.
 strat.check = function() {
   console.log('Check Ichimoku Strat')
-  if (diff >= this.close) {
-      if ((this.pos === "long") && (c.tenkan < c.kijun) && (c.chikou < SAR)) {
+  
+  c = this.ichi.check();
+
+  this.diff = 100 * ((c.tenkan - c.kijun) / ((c.tenkan + c.kijun) / 2));
+
+  console.log('Diff:', this.diff)
+
+  this.diff = Math.abs(this.diff);
+
+  console.log('Diff:', this.diff)
+
+  const min_tenkan = Math.min([c.tenkan, c.kijun]);
+  const max_tenkan = Math.max([c.tenkan, c.kijun]);
+  const min_senkou = Math.min([c.senkou_a, c.senkou_b]);
+  const max_senkou = Math.max([c.senkou_a, c.senkou_b]);
+
+  console.log('SAR Results', this.sar.result)
+  console.log('Diff: ' + this.diff + ' Close: ' + this.close + ' Open: ' + this.open)
+  console.log('Ichi Check: ', c)
+
+
+  if (this.diff >= this.close) {
+      if ((this.pos === "long") && (this.c.tenkan < this.c.kijun) && (this.c.chikou < this.sar.result.outReal)) {
           this.advice('short');
-      } else if ((this.pos === "short") && (c.tenkan > c.kijun) && (c.chikou > SAR)) {
+      } else if ((this.pos === "short") && (this.c.tenkan > this.c.kijun) && (this.c.chikou > this.sar.result.outReal)) {
           this.advice('long');
       }
   }
-  if (diff >= this.open) {
+  if (this.diff >= this.open) {
       if ((c.tenkan > c.kijun) && (min_tenkan > max_senkou) && (c.chikou > c.lag_chikou)) {
           this.currentTrend = 'long';
           this.advice('long');
@@ -116,24 +114,6 @@ strat.check = function() {
           this.currentTrend = 'short';
           this.advice('short');
       }
-  }
-
-  // Only continue if we have a new update.
-  if(!this.toUpdate)
-    return;
-
-  if(this.currentTrend === 'long') {
-
-    // If it was long, set it to short
-    this.currentTrend = 'short';
-    this.advice('short');
-
-  } else {
-
-    // If it was short, set it to long
-    this.currentTrend = 'long';
-    this.advice('long');
-
   }
 }
 
